@@ -7,6 +7,8 @@ from db import init_db
 from handlers import register_handlers
 from tasks import setup_scheduler
 
+logging.info("Бот запущен через main.py")
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
