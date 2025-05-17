@@ -21,7 +21,7 @@ DATABASE_URL   = os.getenv("DATABASE_URL",   "sqlite+aiosqlite:///./app.db")
 # ======================
 PROXY_USERNAME = os.getenv("PROXY_USERNAME")
 PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
-PROXY_DNS      = os.getenv("PROXY_DNS",      "165.154.179.147:2334")
+PROXY_DNS      = os.getenv("PROXY_DNS")
 
 IP_API_URL     = os.getenv("IP_API_URL",     "http://ip-api.com/json")
 
