@@ -3,6 +3,7 @@
 import time
 import uuid
 import requests
+import logging
 from urllib.parse import unquote
 
 from seleniumwire import webdriver
@@ -20,6 +21,10 @@ from config import (
     MAX_PROXY_ATTEMPTS,
 )
 
+# Модульный логгер
+logger = logging.getLogger(__name__)
+logger.debug("Loaded proxy config: PROXY_USERNAME=%s, PROXY_DNS=%s", PROXY_USERNAME, PROXY_DNS)
+
 
 class ProxyAcquireError(Exception):
     """
@@ -29,9 +34,7 @@ class ProxyAcquireError(Exception):
       {"attempt": int, "ip": str|None, "city": str|None}
     """
     def __init__(self, attempts):
-        super().__init__(
-            f"Не удалось получить московский прокси за {len(attempts)} попыток"
-        )
+        super().__init__(f"Не удалось получить московский прокси за {len(attempts)} попыток")
         self.attempts = attempts
 
 
@@ -47,7 +50,10 @@ def _acquire_moscow_proxy():
         # Формируем credentials для ротации сессии
         session_id = uuid.uuid4().hex
         user = f"{PROXY_USERNAME}-session-{session_id}"
+        logger.debug("Proxy attempt %d: building auth for user=%s, dns=%s", attempt, user, PROXY_DNS)
+
         proxy_auth = f"http://{user}:{PROXY_PASSWORD}@{PROXY_DNS}"
+        logger.debug("Constructed proxy_auth (hidden password): %s@%s", user, PROXY_DNS)
 
         ip = city = None
         info = {}
@@ -60,15 +66,16 @@ def _acquire_moscow_proxy():
             info = resp.json()
             ip = info.get("query")
             city = info.get("city")
-        except Exception:
-            # в случае ошибки оставляем ip, city = None
-            pass
+            logger.debug("Proxy check returned ip=%s, city=%s", ip, city)
+        except Exception as e:
+            logger.debug("Error fetching IP info on attempt %d: %s", attempt, e)
 
         # Собираем данные попытки
         attempts.append({"attempt": attempt, "ip": ip, "city": city})
 
         # Если IP в Москве — возвращаем результат
         if city in ("Moscow", "Moscow Oblast"):
+            logger.debug("Moscow proxy acquired on attempt %d", attempt)
             return proxy_auth, info, attempts
 
         # Иначе ждём перед следующей попыткой
@@ -109,6 +116,7 @@ def fetch_redirect(raw_url: str, device: dict):
     # 1) Нормализуем URL
     url = raw_url if raw_url.startswith(("http://", "https://")) else f"https://{raw_url}"
     initial_url = unquote(url)
+    logger.debug("Fetching redirect for URL: %s", initial_url)
 
     # 2) Подбираем московский прокси (или получаем ошибку)
     proxy_auth, ip_info, proxy_attempts = _acquire_moscow_proxy()
@@ -175,9 +183,8 @@ def fetch_redirect(raw_url: str, device: dict):
     # 4) Переходим по URL и ждём первого редиректа
     try:
         driver.get(url)
-    except (TimeoutException, WebDriverException):
-        # можно залогировать, но продолжаем
-        pass
+    except (TimeoutException, WebDriverException) as e:
+        logger.debug("Initial driver.get() exception: %s", e)
 
     try:
         WebDriverWait(driver, REDIRECT_TIMEOUT).until(EC.url_changes(url))
@@ -188,9 +195,12 @@ def fetch_redirect(raw_url: str, device: dict):
     # 5) Останавливаем загрузку и закрываем драйвер
     try:
         driver.execute_script("window.stop();")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Error stopping window load: %s", e)
     driver.quit()
+
+    logger.debug("Fetch complete: initial=%s final=%s ip=%s isp=%s",
+                 initial_url, final_url, ip_info.get("query"), ip_info.get("isp"))
 
     return (
         initial_url,
