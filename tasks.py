@@ -110,6 +110,7 @@ async def process_queue_item(item, bot):
                 url_to_show = initial_url or item.url
                 init_short = shorten_url(url_to_show)
                 init_link  = f'<a href="{url_to_show}">{init_short}</a>'
+                device_name = device_obj.model
 
                 if state == "success":
                     final_short = shorten_url(final_url)
@@ -118,7 +119,8 @@ async def process_queue_item(item, bot):
                         "Успешный переход ✅\n"
                         f"▶️ {init_link}\n"
                         f"⏹️ {final_link}\n"
-                        f"🌐 ip {ip or '—'}"
+                        f"🌐 ip {ip or '—'}\n"
+                        f"📱 {device_name}"
                     )
                 else:
                     text = (
