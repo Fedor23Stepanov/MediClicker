@@ -236,34 +236,46 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+
+    # Берём только успешные переходы
     async with AsyncSessionLocal() as session:
         events = (await session.execute(
             select(Event)
             .filter(
                 Event.user_id == user_id,
-                Event.state.in_(["success", "proxy_error"])
+                Event.state == "success"
             )
             .order_by(Event.timestamp.desc())
             .limit(20)
         )).scalars().all()
 
     if not events:
-        text = "История запросов пуста"
+        text = "История переходов пуста"
     else:
         lines = []
         for e in events:
-            ts = e.timestamp.strftime("%Y-%m-%d %H:%M")
-            init_short = shorten_url(e.initial_url)
-            init_link  = f'<a href="{e.initial_url}">{init_short}</a>'
-            if e.state == "success":
-                final_short = shorten_url(e.final_url)
-                final_link  = f'<a href="{e.final_url}">{final_short}</a>'
-                lines.append(f"{ts}: {init_link} → {final_link}")
-            else:
-                lines.append(f"{ts}: {init_link} ({e.state})")
-        text = "История запросов:\n" + "\n".join(lines)
+            # короткие ссылки
+            init_url   = e.initial_url or ""
+            final_url  = e.final_url   or ""
+            init_short = shorten_url(init_url)
+            final_short= shorten_url(final_url)
+            # ip
+            ip_addr    = e.ip or "—"
 
-    back_kb = InlineKeyboardMarkup([[InlineKeyboardButton("↩️ Назад", callback_data="back_to_menu")]])
+            lines.append(f"▶️ {init_short}")
+            lines.append(f"⏹️ {final_short}")
+            lines.append(f"🌐 {ip_addr}")
+            lines.append("──────────────────")
+
+        # Убираем последний разделитель
+        if lines:
+            lines.pop()
+
+        text = "История переходов:\n" + "\n".join(lines)
+
+    back_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("↩️ Назад", callback_data="back_to_menu")]
+    ])
     await query.message.edit_text(
         text,
         reply_markup=back_kb,
