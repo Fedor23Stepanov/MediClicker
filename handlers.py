@@ -340,7 +340,8 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kb = add_moderator_menu() if role_to_add == "moderator" else add_user_menu()
             return await update.message.reply_text(
                 "Неверный формат. Пришлите никнейм в виде @username или ссылку t.me/username",
-                reply_markup=kb
+                reply_markup=kb,
+                disable_web_page_preview=True
             )
         normalized = match.group("username")
 
