@@ -1,5 +1,6 @@
 # models.py
 
+from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, DateTime, Enum as SQLEnum, Boolean, ForeignKey, JSON
 )
@@ -19,10 +20,15 @@ class User(Base):
     username = Column(String, nullable=False, unique=True)
     role = Column(SQLEnum("admin", "moderator", "user", name="user_roles"), nullable=False)
     status = Column(SQLEnum("activ", "pending", name="user_statuses"), nullable=False)
-    transition_mode = Column(SQLEnum("immediate", "daily", name="transition_modes"), nullable=False, default="immediate")
+    transition_mode = Column(
+        SQLEnum("immediate", "daily", name="transition_modes"),
+        nullable=False,
+        default="immediate"
+    )
     invited_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
-    created_date = Column(DateTime(timezone=True), server_default=func.now())
-    activated_date = Column(DateTime(timezone=True), nullable=True)
+    # Локальное время создания и активации
+    created_date = Column(DateTime, default=datetime.now)
+    activated_date = Column(DateTime, nullable=True)
 
     # Отношение пригласивший ↔ приглашенные
     inviter = relationship(
@@ -47,27 +53,30 @@ class ProxyLog(Base):
     attempt   = Column(Integer, primary_key=True)
     ip        = Column(String, nullable=True)
     city      = Column(String, nullable=True)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    timestamp = Column(DateTime, default=datetime.now)
 
 class Event(Base):
     __tablename__ = "events"
     id               = Column(Integer, primary_key=True, autoincrement=True)
     user_id          = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     device_option_id = Column(Integer, ForeignKey("device_options.id"), nullable=True)
-    state            = Column(SQLEnum(
-                          "no_link",
-                          "many_links",
-                          "proxy_error",
-                          "redirector_error",
-                          "success",
-                          name="event_states"
-                       ), nullable=False)
+    state            = Column(
+        SQLEnum(
+            "no_link",
+            "many_links",
+            "proxy_error",
+            "redirector_error",
+            "success",
+            name="event_states"
+        ),
+        nullable=False
+    )
     proxy_id         = Column(String, ForeignKey("proxy_logs.id"), nullable=True)
     initial_url      = Column(String, nullable=True)
     final_url        = Column(String, nullable=True)
     ip               = Column(String, nullable=True)
     isp              = Column(String, nullable=True)
-    timestamp        = Column(DateTime(timezone=True), server_default=func.now())
+    timestamp        = Column(DateTime, default=datetime.now)
 
 class Queue(Base):
     __tablename__ = "queue"
@@ -77,6 +86,10 @@ class Queue(Base):
     user_id         = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     message_id      = Column(Integer, nullable=False)
     url             = Column(String, nullable=False)
-    transition_time = Column(DateTime(timezone=True), nullable=True)
+    transition_time = Column(DateTime, nullable=True)
     # Новый статус обработки: pending, in_progress, done
-    status          = Column(SQLEnum("pending", "in_progress", "done", name="queue_statuses"), nullable=False, server_default="pending")
+    status          = Column(
+        SQLEnum("pending", "in_progress", "done", name="queue_statuses"),
+        nullable=False,
+        server_default="pending"
+    )
