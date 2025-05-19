@@ -1,6 +1,7 @@
 #db.py
 
 import json
+import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, func
@@ -21,40 +22,54 @@ async def init_db():
     3) Добавляет initial admin в users со статусом pending, если нет.
     """
     # 1) Создать таблицы
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        logging.error("init_db: не удалось создать таблицы: %s", e, exc_info=True)
+        return
 
     # 2) Наполнить device_options и добавить админа
     async with AsyncSessionLocal() as session:
-        # Проверяем, пуста ли таблица device_options
-        count = await session.scalar(
-            select(func.count()).select_from(DeviceOption)
-        )
+        try:
+            # Проверяем, пуста ли таблица device_options
+            count = await session.scalar(
+                select(func.count()).select_from(DeviceOption)
+            )
+        except Exception as e:
+            logging.error("init_db: ошибка при select count DeviceOption: %s", e, exc_info=True)
+            return
+
         if count == 0:
-            with open("devices.json", encoding="utf-8") as f:
-                data = json.load(f)
-            for id_str, device in data.items():
-                session.add(DeviceOption(
-                    id=int(id_str),
-                    ua=device["ua"],
-                    css_size=device["css_size"],
-                    platform=device["platform"],
-                    dpr=device["dpr"],
-                    mobile=device["mobile"],
-                    model=device.get("model")
-                ))
+            try:
+                with open("devices.json", encoding="utf-8") as f:
+                    data = json.load(f)
+                for id_str, device in data.items():
+                    session.add(DeviceOption(
+                        id=int(id_str),
+                        ua=device["ua"],
+                        css_size=device["css_size"],
+                        platform=device["platform"],
+                        dpr=device["dpr"],
+                        mobile=device["mobile"],
+                        model=device.get("model")
+                    ))
+            except Exception as e:
+                logging.error("init_db: не удалось загрузить devices.json: %s", e, exc_info=True)
 
         # Проверяем наличие initial admin по username
-        result = await session.execute(
-            select(User).filter_by(username=INITIAL_ADMIN)
-        )
-        admin = result.scalar_one_or_none()
-        if not admin:
-            session.add(User(
-                username=INITIAL_ADMIN,
-                role="admin",
-                status="pending",
-                invited_by=None
-            ))
-
-        await session.commit()
+        try:
+            result = await session.execute(
+                select(User).filter_by(username=INITIAL_ADMIN)
+            )
+            admin = result.scalar_one_or_none()
+            if not admin:
+                session.add(User(
+                    username=INITIAL_ADMIN,
+                    role="admin",
+                    status="pending",
+                    invited_by=None
+                ))
+            await session.commit()
+        except Exception as e:
+            logging.error("init_db: ошибка при добавлении initial admin или коммите: %s", e, exc_info=True)
