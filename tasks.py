@@ -116,9 +116,9 @@ async def process_queue_item(item, bot):
                     final_link  = f'<a href="{final_url}">{final_short}</a>'
                     text = (
                         "Успешный переход ✅\n"
-                        f"{init_link}\n"
-                        f"⬇️ ip {ip or '—'}\n"
-                        f"{final_link}"
+                        f"▶️ {init_link}\n"
+                        f"⏹️ {final_link}\n"
+                        f"🌐 ip {ip or '—'}"
                     )
                 else:
                     text = (
