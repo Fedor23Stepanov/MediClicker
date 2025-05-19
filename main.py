@@ -15,48 +15,59 @@ logging.basicConfig(
     ]
 )
 
-print(">>> MAIN.PY START")
 logging.info("Бот запускается через main.py")
 
 # Этот колбэк будет вызван внутри event loop ДО polling
 async def on_startup(app):
-    logging.info("on_startup() вызван")
-    print(">>> on_startup() called")
-    await init_db()
-    logging.info("База данных инициализирована")
-    print(">>> DB инициализирована")
+    try:
+        logging.info("on_startup() вызван")
+        await init_db()
+        logging.info("База данных инициализирована")
+    except Exception:
+        logging.exception("Error in on_startup")
 
 def main():
-    print(">>> main() called")
     logging.info("main() начат")
 
     if TELEGRAM_TOKEN is None:
         logging.error("TELEGRAM_TOKEN = None. Проверь .env и config.py")
-        print("!!! TELEGRAM_TOKEN отсутствует !!!")
         return
 
-    app = (
-        ApplicationBuilder()
-        .token(TELEGRAM_TOKEN)
-        .post_init(on_startup)
-        .build()
-    )
-    print(">>> app построен")
-    logging.info("Приложение построено")
+    # Собираем приложение
+    try:
+        app = (
+            ApplicationBuilder()
+            .token(TELEGRAM_TOKEN)
+            .post_init(on_startup)
+            .build()
+        )
+        logging.info("Приложение построено")
+    except Exception:
+        logging.exception("Error building Application")
+        return
 
-    register_handlers(app)
-    print(">>> handlers зарегистрированы")
-    logging.info("Handlers зарегистрированы")
+    # Регистрируем хендлеры
+    try:
+        register_handlers(app)
+        logging.info("Handlers зарегистрированы")
+    except Exception:
+        logging.exception("Error registering handlers")
 
-    setup_scheduler(app)
-    print(">>> scheduler настроен")
-    logging.info("Scheduler настроен")
+    # Настраиваем планировщик
+    try:
+        setup_scheduler(app)
+        logging.info("Scheduler настроен")
+    except Exception:
+        logging.exception("Error setting up scheduler")
 
-    print(">>> Запускаем polling...")
+    # Запускаем polling
     logging.info("Polling запускается")
-    app.run_polling()
-    logging.info("Polling завершён")
-    print(">>> polling завершён")
+    try:
+        app.run_polling()
+    except Exception:
+        logging.exception("Error during polling")
+    finally:
+        logging.info("Polling завершён")
 
 if __name__ == "__main__":
     main()
