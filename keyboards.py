@@ -64,15 +64,24 @@ def transition_mode_menu(current_mode: str) -> InlineKeyboardMarkup:
 
 def users_menu(users) -> InlineKeyboardMarkup:
     """
-    Меню «Пользователи»: список @username + кнопка «🗑️ Удалить»,
+    Меню «Пользователи»: список @username (с эмодзи статуса) + кнопка «🗑️ Удалить»,
     затем «➕ Добавить пользователя», «➕ Добавить модератора», «↩️ Назад».
     """
     buttons = []
     for user in users:
+        # эмодзи в зависимости от статуса/роли
+        if user.status == "pending":
+            emoji = "⏳"
+        elif user.role == "user":
+            emoji = "✅"
+        else:  # moderator или admin
+            emoji = "👑"
+
         buttons.append([
-            InlineKeyboardButton(f"@{user.username}", callback_data="noop"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data=f"del_user:{user.user_id}"),
+            InlineKeyboardButton(f"{emoji} @{user.username}", callback_data="noop"),
+            InlineKeyboardButton("🗑️ Удалить", callback_data=f"del_user:{user.username}"),
         ])
+
     buttons.append([InlineKeyboardButton("➕ Добавить пользователя", callback_data="add_user")])
     buttons.append([InlineKeyboardButton("➕ Добавить модератора", callback_data="add_moderator")])
     buttons.append([InlineKeyboardButton("↩️ Назад", callback_data="back_to_menu")])
@@ -84,7 +93,7 @@ def add_user_menu() -> InlineKeyboardMarkup:
     Клавиатура при вводе ника нового пользователя: «❌ Отмена»
     """
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Отмена", callback_data="back_to_menu")]
+        [InlineKeyboardButton("❌ Отмена", callback_data="cancel")]
     ])
 
 
@@ -93,5 +102,5 @@ def add_moderator_menu() -> InlineKeyboardMarkup:
     Клавиатура при вводе ника нового модератора: «❌ Отмена»
     """
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Отмена", callback_data="back_to_menu")]
+        [InlineKeyboardButton("❌ Отмена", callback_data="cancel")]
     ])
