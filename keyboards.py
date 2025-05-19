@@ -2,6 +2,7 @@
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+
 def main_menu(role: str) -> InlineKeyboardMarkup:
     """
     Главное inline-меню:
@@ -62,28 +63,27 @@ def transition_mode_menu(current_mode: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
-def users_menu(users) -> InlineKeyboardMarkup:
+def users_menu(users, actor_role: str) -> InlineKeyboardMarkup:
     """
     Меню «Пользователи»: список @username (с эмодзи статуса) + кнопка «🗑️ Удалить»,
-    затем «➕ Добавить пользователя», «➕ Добавить модератора», «↩️ Назад».
+    затем «➕ Добавить пользователя», «➕ Добавить модератора» (только админ), «↩️ Назад».
     """
     buttons = []
     for user in users:
-        # эмодзи в зависимости от статуса/роли
         if user.status == "pending":
             emoji = "⏳"
         elif user.role == "user":
             emoji = "✅"
-        else:  # moderator или admin
+        else:
             emoji = "👑"
-
         buttons.append([
             InlineKeyboardButton(f"{emoji} @{user.username}", callback_data="noop"),
             InlineKeyboardButton("🗑️ Удалить", callback_data=f"del_user:{user.username}"),
         ])
 
     buttons.append([InlineKeyboardButton("➕ Добавить пользователя", callback_data="add_user")])
-    buttons.append([InlineKeyboardButton("➕ Добавить модератора", callback_data="add_moderator")])
+    if actor_role == "admin":
+        buttons.append([InlineKeyboardButton("➕ Добавить модератора", callback_data="add_moderator")])
     buttons.append([InlineKeyboardButton("↩️ Назад", callback_data="back_to_menu")])
     return InlineKeyboardMarkup(buttons)
 
