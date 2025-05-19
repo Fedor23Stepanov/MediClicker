@@ -327,16 +327,20 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             lines = []
             for e in events:
-                ts = e.timestamp.strftime("%H:%M %d:%m:%y")
+                ts = e.timestamp.strftime("%H:%M %d.%m.%y")
                 init_url    = e.initial_url or ""
                 final_url   = e.final_url   or ""
                 init_short  = shorten_url(init_url)
                 final_short = shorten_url(final_url)
                 ip_addr     = e.ip or "—"
 
+                # формируем кликабельные ссылки
+                init_link  = f'<a href="{init_url}">{init_short}</a>' if init_short else init_url
+                final_link = f'<a href="{final_url}">{final_short}</a>' if final_short else final_url
+
                 lines.append(f"📅 {ts}")
-                lines.append(f"▶️ {init_short}")
-                lines.append(f"⏹️ {final_short}")
+                lines.append(f"▶️ {init_link}")
+                lines.append(f"⏹️ {final_link}")
                 lines.append(f"🌐 {ip_addr}")
                 lines.append("──────────────────")
 
