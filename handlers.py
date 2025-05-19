@@ -327,12 +327,14 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             lines = []
             for e in events:
+                ts = e.timestamp.strftime("%H:%M %d:%m:%y")
                 init_url    = e.initial_url or ""
                 final_url   = e.final_url   or ""
                 init_short  = shorten_url(init_url)
                 final_short = shorten_url(final_url)
                 ip_addr     = e.ip or "—"
 
+                lines.append(f"📅 {ts}")
                 lines.append(f"▶️ {init_short}")
                 lines.append(f"⏹️ {final_short}")
                 lines.append(f"🌐 {ip_addr}")
