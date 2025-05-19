@@ -69,8 +69,11 @@ async def process_queue_item(item, bot):
             except ProxyAcquireError as e:
                 state = "proxy_error"
                 attempts = e.attempts
+                # гарантируем, что initial_url не None
+                initial_url = item.url
             except Exception:
                 state = "redirector_error"
+                initial_url = item.url
 
             # Логируем proxy_attempts
             for a in attempts:
@@ -103,8 +106,10 @@ async def process_queue_item(item, bot):
             # Отправляем уведомление
             db_user = await fetch_db_user(session, item.user_id)
             if db_user:
-                init_short = shorten_url(initial_url)
-                init_link  = f'<a href="{initial_url}">{init_short}</a>'
+                # при ошибках initial_url теперь всегда задана
+                url_to_show = initial_url or item.url
+                init_short = shorten_url(url_to_show)
+                init_link  = f'<a href="{url_to_show}">{init_short}</a>'
 
                 if state == "success":
                     final_short = shorten_url(final_url)
