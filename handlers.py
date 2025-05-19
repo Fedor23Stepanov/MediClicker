@@ -276,8 +276,12 @@ async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     async with AsyncSessionLocal() as session:
+        actor = await fetch_db_user(session, query.from_user.id)
         users = (await session.execute(select(User).order_by(User.role))).scalars().all()
-    await query.message.edit_text("Пользователи", reply_markup=users_menu(users))
+    await query.message.edit_text(
+        "Пользователи",
+        reply_markup=users_menu(users, actor_role=actor.role if actor else "")
+    )
 
 async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -286,7 +290,7 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async with AsyncSessionLocal() as session:
         db_actor = await fetch_db_user(session, query.from_user.id)
 
-        # target по user_id или по username
+        # определяем цель: по user_id или по username
         try:
             target_id = int(sid)
             db_target = await fetch_db_user(session, target_id)
@@ -302,7 +306,10 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await session.delete(db_target)
                 await session.commit()
                 users = (await session.execute(select(User).order_by(User.role))).scalars().all()
-                await query.message.edit_text("Пользователи", reply_markup=users_menu(users))
+                await query.message.edit_text(
+                    "Пользователи",
+                    reply_markup=users_menu(users, actor_role=db_actor.role)
+                )
 
 # Добавление пользователя / модератора
 async def add_user_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -318,8 +325,16 @@ async def add_user_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_moderator_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    # проверяем, что приглашающий — админ
+    async with AsyncSessionLocal() as session:
+        actor = await fetch_db_user(session, query.from_user.id)
+        if not actor or actor.role != "admin":
+            return await query.answer(
+                "Только админ может добавлять модераторов",
+                show_alert=True
+            )
     await query.message.edit_text(
-        "Для добавения нового модератора пришлите его ник",
+        "Для добавления нового модератора пришлите его ник",
         reply_markup=add_moderator_menu()
     )
     context.user_data["adding_role"] = "moderator"
