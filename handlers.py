@@ -1,4 +1,4 @@
-# handlers.py
+#handlers.py
 
 import re
 import random
@@ -38,10 +38,6 @@ RED_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 def shorten_url(full_url: str, max_len: int = 30) -> str:
-    """
-    Обрезает протокол и сокращает URL до max_len символов:
-    домен + суффикс + … + последние символы.
-    """
     parsed = urlparse(full_url)
     rest = parsed.netloc + parsed.path + (f"?{parsed.query}" if parsed.query else "")
     if len(rest) <= max_len:
@@ -51,7 +47,6 @@ def shorten_url(full_url: str, max_len: int = 30) -> str:
     return f"{parsed.netloc}…{tail}"
 
 async def fetch_db_user(session, telegram_id: int):
-    """Возвращает объект User по Telegram ID или None."""
     result = await session.execute(
         select(User).filter_by(user_id=telegram_id)
     )
@@ -163,7 +158,6 @@ async def on_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     buttons = []
     for idx, item in enumerate(items):
-        # Ссылка (сокращённый текст, полная URL по нажатию)
         short = shorten_url(item.url)
         buttons.append([InlineKeyboardButton(short, url=item.url)])
 
@@ -176,13 +170,10 @@ async def on_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif item.status == "in_progress":
             buttons.append([InlineKeyboardButton("в процессе перехода", callback_data="noop")])
 
-        # разделитель между блоками (кроме последнего)
         if idx < len(items) - 1:
             buttons.append([InlineKeyboardButton("──────────────────", callback_data="noop")])
 
-    # кнопка «Назад»
     buttons.append([InlineKeyboardButton("↩️ Назад", callback_data="back_to_menu")])
-
     await send("Ваша очередь:", reply_markup=InlineKeyboardMarkup(buttons))
 
 # Удалить из очереди
@@ -195,7 +186,6 @@ async def on_delete_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if item and item.status != "in_progress":
             await session.delete(item)
             await session.commit()
-    # Перерисовать очередь
     await on_queue(update, context)
 
 # Статистика
@@ -295,7 +285,17 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _, sid = query.data.split(":", 1)
     async with AsyncSessionLocal() as session:
         db_actor = await fetch_db_user(session, query.from_user.id)
-        db_target = await fetch_db_user(session, int(sid))
+
+        # target по user_id или по username
+        try:
+            target_id = int(sid)
+            db_target = await fetch_db_user(session, target_id)
+        except (ValueError, TypeError):
+            result = await session.execute(
+                select(User).filter_by(username=sid)
+            )
+            db_target = result.scalar_one_or_none()
+
         if db_actor and db_target:
             order = {"user": 1, "moderator": 2, "admin": 3}
             if order[db_actor.role] > order[db_target.role]:
@@ -333,7 +333,17 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role_to_add = context.user_data.get("adding_role")
     inviter_id = context.user_data.get("inviter_id")
     if role_to_add:
-        normalized = re.sub(r"^(?:https?://t\.me/|t\.me/|@)", "", text.strip())
+        text_stripped = text.strip()
+        # принимаем только @username или t.me/username
+        match = re.match(r"^(?:@|t\.me/|https?://t\.me/)(?P<username>\w+)$", text_stripped)
+        if not match:
+            kb = add_moderator_menu() if role_to_add == "moderator" else add_user_menu()
+            return await update.message.reply_text(
+                "Неверный формат. Пришлите никнейм в виде @username или ссылку t.me/username",
+                reply_markup=kb
+            )
+        normalized = match.group("username")
+
         async with AsyncSessionLocal() as session:
             exists = (await session.execute(
                 select(User).filter_by(username=normalized)
@@ -352,10 +362,12 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"{role_name} @{normalized} успешно добавлен")
             else:
                 await update.message.reply_text(f"Пользователь @{normalized} уже существует")
+
         context.user_data.pop("adding_role", None)
         context.user_data.pop("inviter_id", None)
         return
 
+    # остальная логика работы с очередями...
     async with AsyncSessionLocal() as session:
         db_user = await fetch_db_user(session, user.id)
         if not db_user:
